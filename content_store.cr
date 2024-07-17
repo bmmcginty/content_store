@@ -16,6 +16,19 @@ end
 end
 
 
+class ContentStoreNotClosedError < ContentStoreError
+@path : Path
+
+def initialize(@path)
+end
+
+def to_s
+"repo with path #{@path} was not closed before cleanup; temp files explicitly not deleted to allow for examination"
+end
+
+end
+
+
 class ContentStoreBoundaryError < ContentStoreError
 @path : Path
 @parent : Path
@@ -96,6 +109,7 @@ class RepoItem
 @ls = [] of Path
 @added = [] of Path
 @ext : String
+@closed=false
 
 def initialize(path, @ext)
 @path=Path[path.to_s+"."+@ext]
@@ -108,12 +122,21 @@ FileUtils.rm_r(temp_file)
 end
 end
 
+def convert
+old=@path.to_s.gsub(/.#{@ext}$/,"")
+if File.exists?(old)
+compress old
+end
+end
+
 def temp_dir
-Path[@path.to_s+".tmpdir"]
+ret=Path[@path.to_s+".tmpdir"]
+ret
 end
 
 def temp_file
-Path[@path.to_s+".tmpfile"]
+ret=Path[@path.to_s+".tmpfile"]
+ret
 end
 
 def list
@@ -188,13 +211,20 @@ fh << content
 end
 end # def
 
+def finalize
+if ! @closed
+#puts "failed to close #{@path} before freeing"
+end
+end
+
 def close
 if @added.size>0
-compress
+combine
 end
 if File.exists?(temp_dir)
 FileUtils.rm_r(temp_dir)
 end
+@closed=true
 end
 
 def cmd_list
@@ -207,15 +237,24 @@ end
 end
 end
 
-def compress
-if File.exists?(@path)
-cmd=["bsdtar", "-x", "-f", @path.to_s, "-C", temp_dir.to_s, "--keep-old-files"]
+def decompress(dest)
+cmd=["bsdtar", "-x", "-f", @path.to_s, "-C", dest.to_s, "--keep-old-files"]
 run cmd
 end
-cmd=["bsdtar", "-c", "--"+@ext.split(".")[-1], "-f", temp_file.to_s, "-C", temp_dir.to_s, "."]
+
+def compress(src)
+cmd=["bsdtar", "-c", "--"+@ext.split(".")[-1], "--strip-components", "1", "-f", temp_file.to_s, "-C", src.to_s, "."]
 run cmd
 File.rename temp_file, @path
 end # def
+
+# by default, extract existing archive to directory and recompress with new contents
+def combine
+if File.exists?(@path)
+decompress dest: temp_dir
+end
+compress temp_dir
+end
 
 end # class
 

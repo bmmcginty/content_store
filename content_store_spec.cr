@@ -37,6 +37,16 @@ expect_raises(ContentStoreBoundaryError) do
 t=a.open "../i1"
 end # expect
 end # it
+it "decompresses to directory" do
+a=Repo.new "a"
+i=a.open "i1"
+Dir.mkdir_p "/dev/shm/d1"
+i.decompress "/dev/shm/d1"
+Dir.children("/dev/shm/d1").sort.should eq ["a1","a2"]
+FileUtils.rm_r("/dev/shm/d1")
+i.close
+a.close
+end
 it "removes existing tmpdir" do
 `touch data/site/a1`
 `touch data/site/a1/d1.tmpdir`
@@ -56,17 +66,17 @@ i.close
 a.close
 end
 it "handles large files" do
-a=Repo.new "big"
+`mkdir -p data/site/big.com`
+`cp -p -R /tmp/gg data/site/big.com/huge`
+a=Repo.new "big.com"
 i=a.open "huge"
 st1=Time.monotonic
-Dir.children("/tmp/gg").each do |name|
-i.write name,File.read("/tmp/gg/"+name)
-end
+i.convert
 st2=Time.monotonic
 i.close
 st3=Time.monotonic
-puts "write #{st2-st1}"
+puts "convert #{st2-st1}"
 puts "compress #{st3-st2}"
 a.close
-end
+end # it
 end # describe
