@@ -37,4 +37,36 @@ expect_raises(ContentStoreBoundaryError) do
 t=a.open "../i1"
 end # expect
 end # it
+it "removes existing tmpdir" do
+`touch data/site/a1`
+`touch data/site/a1/d1.tmpdir`
+a=Repo.new "a1"
+i=a.open "d1"
+File.exists?("data/site/a1/d1.tmpdir").should eq false
+i.close
+a.close
+end
+it "removes existing tmpfile" do
+`touch data/site/a1`
+`touch data/site/a1/f1.tmpfile`
+a=Repo.new "a1"
+i=a.open "f1"
+File.exists?("data/site/a1/f1.tmpfile").should eq false
+i.close
+a.close
+end
+it "handles large files" do
+a=Repo.new "big"
+i=a.open "huge"
+st1=Time.monotonic
+Dir.children("/tmp/gg").each do |name|
+i.write name,File.read("/tmp/gg/"+name)
+end
+st2=Time.monotonic
+i.close
+st3=Time.monotonic
+puts "write #{st2-st1}"
+puts "compress #{st3-st2}"
+a.close
+end
 end # describe
