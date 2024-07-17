@@ -100,6 +100,12 @@ class RepoItem
 def initialize(path, @ext)
 @path=Path[path.to_s+"."+@ext]
 @ls.concat list_compressed
+if File.exists?(temp_dir)
+FileUtils.rm_r(temp_dir)
+end
+if File.exists?(temp_file)
+FileUtils.rm_r(temp_file)
+end
 end
 
 def temp_dir
@@ -133,7 +139,7 @@ pn=Path[path].normalize
 @added.includes?(pn))
 end # def
 
-def open(name)
+def write(name)
 pn=Path[temp_dir].join(name).normalize
 if ! pn.parents.includes?(temp_dir)
 raise ContentStoreBoundaryError.new(pn,temp_dir)
@@ -177,7 +183,7 @@ end
 end
 
 def write(name,content)
-open(name) do |fh|
+write(name) do |fh|
 fh << content
 end
 end # def
