@@ -90,7 +90,7 @@ end
 @path=dn
 end
 
-def open(item)
+def open(item, ensure_clean=false)
 p=@path.join(Path[item]).normalize
 if ! p.parents.includes?(@path)
 raise ContentStoreBoundaryError.new(p,@path)
@@ -99,7 +99,7 @@ if ! @created
 Dir.mkdir_p @path
 @created=true
 end
-RepoItem.new p, @ext
+RepoItem.new path: p, ext: @ext, ensure_clean: ensure_clean
 end # def
 
 def close
@@ -116,11 +116,18 @@ class RepoItem
 @ext : String
 @closed=false
 
-def initialize(path, @ext)
+# if you set ensure_clean to true,
+# and you don't call #close,
+# particularly if you encounter errors while the repo is open,
+# you will lose all content from your last opening of the archive upon a reopen
+# Basically, use ensure_clean only when doing content verification/exports.
+def initialize(path, @ext, ensure_clean : Bool)
 @path=Path[path.to_s+"."+@ext]
 @ls.concat list_compressed
+if ensure_clean
 if File.exists?(temp_dir)
 FileUtils.rm_r(temp_dir)
+end
 end
 if File.exists?(temp_file)
 FileUtils.rm_r(temp_file)

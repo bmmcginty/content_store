@@ -47,12 +47,21 @@ FileUtils.rm_r("/dev/shm/d1")
 i.close
 a.close
 end
-it "removes existing tmpdir" do
+it "removes existing tmpdir when requested to do so" do
 p="data/site/a1/d1.tar.zstd.tmpdir"
 `mkdir -p #{p}`
 a=Repo.new "a1"
-i=a.open "d1"
+i=a.open "d1", ensure_clean: true
 File.exists?(p).should eq false
+i.close
+a.close
+end
+it "does not remove tempdir normally" do
+p="data/site/a1/d2.tar.zstd.tmpdir"
+`mkdir -p #{p}`
+a=Repo.new "a1"
+i=a.open "d2"
+File.exists?(p).should eq true
 i.close
 a.close
 end
