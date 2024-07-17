@@ -48,23 +48,33 @@ i.close
 a.close
 end
 it "removes existing tmpdir" do
-`touch data/site/a1`
-`touch data/site/a1/d1.tmpdir`
+p="data/site/a1/d1.tar.zstd.tmpdir"
+`mkdir -p #{p}`
 a=Repo.new "a1"
 i=a.open "d1"
-File.exists?("data/site/a1/d1.tmpdir").should eq false
+File.exists?(p).should eq false
 i.close
 a.close
 end
 it "removes existing tmpfile" do
-`touch data/site/a1`
-`touch data/site/a1/f1.tmpfile`
+p="data/site/a1/f1.tar.zstd.tmpfile"
+`mkdir data/site/a1`
+`touch #{p}`
 a=Repo.new "a1"
 i=a.open "f1"
-File.exists?("data/site/a1/f1.tmpfile").should eq false
+File.exists?(p).should eq false
 i.close
 a.close
 end
+it "converts" do
+a=Repo.new "big.com"
+i=a.open "gg"
+i.convert("/tmp/gg").should eq true
+i.convert("/tmp/gg").should eq false
+i.convert("/tmp/dir-that-does-not-exist").should eq false
+i.close
+a.close
+end # it
 it "handles large files" do
 `mkdir -p data/site/big.com`
 `cp -p -R /tmp/gg data/site/big.com/huge`
@@ -78,5 +88,11 @@ st3=Time.monotonic
 puts "convert #{st2-st1}"
 puts "compress #{st3-st2}"
 a.close
+end # it
+it "tests quick methods" do
+ContentStore.open "test.com/chapter/1" do |i|
+i.write "a1", "content1"
+end # item
+File.exists?("data/site/test.com/chapter/1.tar.zstd").should eq true
 end # it
 end # describe

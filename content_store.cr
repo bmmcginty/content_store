@@ -58,7 +58,7 @@ end
 
 
 def run(cmd : Array(String), output : Bool = true)
-puts cmd
+puts cmd.join(" ")
 sp=Process.new(
 command: cmd[0],
 args: cmd[1..-1],
@@ -79,6 +79,7 @@ end
 class Repo
 @path : Path
 @ext="tar.zstd"
+@created=false
 
 def initialize(name)
 parent=Path["data/site"].expand
@@ -93,6 +94,10 @@ def open(item)
 p=@path.join(Path[item]).normalize
 if ! p.parents.includes?(@path)
 raise ContentStoreBoundaryError.new(p,@path)
+end
+if ! @created
+Dir.mkdir_p @path
+@created=true
 end
 RepoItem.new p, @ext
 end # def
@@ -122,10 +127,16 @@ FileUtils.rm_r(temp_file)
 end
 end
 
-def convert
-old=@path.to_s.gsub(/.#{@ext}$/,"")
-if File.exists?(old)
+# convert a directory to an archive
+# only convert if directory exists and archive does not exist
+# (we do not want double-conversions by accident)
+def convert(old = nil) : Bool
+old = old ? old : @path.to_s.gsub(/.#{@ext}$/,"")
+if File.exists?(old) && ! File.exists?(@path)
 compress old
+true
+else
+false
 end
 end
 
@@ -243,6 +254,7 @@ run cmd
 end
 
 def compress(src)
+Dir.mkdir_p @path.parent
 cmd=["bsdtar", "-c", "--"+@ext.split(".")[-1], "--strip-components", "1", "-f", temp_file.to_s, "-C", src.to_s, "."]
 run cmd
 File.rename temp_file, @path
@@ -257,4 +269,23 @@ compress temp_dir
 end
 
 end # class
+
+
+class ContentStore
+def self.repo(name)
+repo=Repo.new name
+yield repo
+repo.close
+end
+
+def self.open(path)
+parts=path.split("/",2)
+repo=Repo.new parts[0]
+item=repo.open parts[1]
+yield item
+item.close
+repo.close
+end
+
+end
 
