@@ -1,9 +1,23 @@
 require "spec"
 require "./content_store"
 
+class RepoItem
+def _added
+@added
+end
+def _ls
+@ls
+end
+end
+
 dn=File.dirname(File.readlink("/proc/self/exe"))
 `rm -Rf "#{dn}/data"`
 describe "contentstore" do
+it "lists files" do
+Dir.mkdir_p("data/dir1/dir2/dir")
+File.write("data/dir1/dir2/file", "content")
+list_files("data").should eq [Path["dir1/dir2/file"]]
+end
 it "works" do
 a=Repo.new "a"
 t=a.open "i1"
@@ -103,5 +117,19 @@ ContentStore.open "test.com/chapter/1" do |i|
 i.write "a1", "content1"
 end # item
 File.exists?("data/site/test.com/chapter/1.tar.zstd").should eq true
+end # it
+it "tracks files added in a tempdir when reopened" do
+p="data/site/a1/d3.tar.zstd.tmpdir"
+Dir.mkdir_p p
+File.write p+"/test", "test"
+r=Repo.new "a1"
+i=r.open "d3"
+i._added.should eq [Path["test"]]
+i.close
+File.exists?(p).should eq false
+i=r.open "d3"
+i._ls.should eq [Path["test"]]
+i.close
+r.close
 end # it
 end # describe

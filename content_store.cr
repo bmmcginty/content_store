@@ -1,5 +1,24 @@
 require "file_utils"
 
+def list_files(start)
+start=Path[start].expand
+ret=[] of Path
+tmp=[start]
+while tmp.size>0
+t=tmp.pop
+Dir.children(t).each do |c|
+p=t.join(c)
+stat=File.info(p)
+if stat.directory?
+tmp.unshift p
+elsif stat.file?
+ret << p.relative_to?(start).not_nil!
+end # if
+end # each
+end # while
+ret
+end # def
+
 class ContentStoreError < Exception
 def inspect
 to_s
@@ -81,8 +100,10 @@ class Repo
 @ext="tar.zstd"
 @created=false
 
-def initialize(name)
-parent=Path["data/site"].expand
+getter path
+
+def initialize(name, parent = "data/site")
+parent=Path[parent].expand
 dn=parent.join(name).expand
 if ! dn.parents.includes?(parent)
 raise ContentStoreBoundaryError.new(dn,parent)
@@ -123,7 +144,6 @@ class RepoItem
 # Basically, use ensure_clean only when doing content verification/exports.
 def initialize(path, @ext, ensure_clean : Bool)
 @path=Path[path.to_s+"."+@ext]
-@ls.concat list_compressed
 if ensure_clean
 if File.exists?(temp_dir)
 FileUtils.rm_r(temp_dir)
@@ -132,6 +152,8 @@ end
 if File.exists?(temp_file)
 FileUtils.rm_r(temp_file)
 end
+@ls.concat list_compressed
+@added.concat list_temp
 end
 
 # convert a directory to an archive
@@ -159,6 +181,14 @@ end
 
 def list
 (@ls+@added).map &.to_s
+end
+
+def list_temp
+if ! File.exists?(temp_dir)
+return [] of Path
+end # if
+ret=list_files temp_dir
+ret
 end
 
 def list_compressed
@@ -255,6 +285,17 @@ end
 end
 end
 
+def extract_temp
+path=File.tempname
+begin
+Dir.mkdir path, mode: 0o700
+decompress path
+yield path
+ensure
+FileUtils.rm_r path
+end # rescue
+end # def
+
 def decompress(dest)
 cmd=["bsdtar", "-x", "-f", @path.to_s, "-C", dest.to_s, "--keep-old-files"]
 run cmd
@@ -296,3 +337,45 @@ end
 
 end
 
+
+# include ContentItem and  provide repo_name and item_name
+# to add access methods to content classes
+module ContentItem
+macro included
+@store : RepoItem? = nil
+getter! store
+end # macro
+
+def open
+open
+begin
+yield
+ensure
+close
+@store=nil
+end # ensure
+end # def
+
+def open?
+if ! @store
+open
+end
+end
+
+def close?
+if @store
+close
+end
+end
+
+def open
+repo=Repo.new repo_name
+@store=repo.open item_name
+end
+
+def close
+store.close
+@store=nil
+end
+
+end # module
