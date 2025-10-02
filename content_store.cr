@@ -156,6 +156,10 @@ end
 @added.concat list_temp
 end
 
+def modification_time
+File.info(@path).modification_time
+end
+
 # convert a directory to an archive
 # only convert if directory exists and archive does not exist
 # (we do not want double-conversions by accident)
